@@ -79,6 +79,7 @@ func isAllowedOrigin(origin string) bool {
 
 	// 允许管理后台域名（如果有）
 	allowedDomains := []string{
+		"https://dualtab.emcck.com",
 		"https://admin.dualtab.emcck.com",
 		// 可以在这里添加更多允许的域名
 	}
