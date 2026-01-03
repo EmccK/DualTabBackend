@@ -36,7 +36,7 @@ services:
       - DB_NAME=dualtab
       - JWT_SECRET=your-jwt-secret-key-change-in-production
       - UPLOAD_PATH=/app/uploads
-      - UPLOAD_URL=http://localhost:${BACKEND_PORT:-8080}/uploads
+      - UPLOAD_URL=${UPLOAD_URL:-http://localhost:${BACKEND_PORT:-8080}/uploads}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
     volumes:
@@ -57,6 +57,8 @@ services:
       args:
         NEXT_PUBLIC_API_URL: http://localhost:${BACKEND_PORT:-8080}
     container_name: dualtab-admin
+    environment:
+      - API_URL=${API_URL:-http://localhost:${BACKEND_PORT:-8080}}
     ports:
       - "${ADMIN_PORT:-3000}:3000"
     depends_on:
