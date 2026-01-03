@@ -11,7 +11,7 @@ DualTab Chrome 扩展的后端服务和管理后台。
 
 ## 快速开始
 
-### 使用 Docker（推荐）
+### 本地开发环境
 
 ```bash
 # 启动所有服务
@@ -24,22 +24,32 @@ docker-compose logs -f
 docker-compose down
 ```
 
-默认服务地址：
+默认服务地址:
 - 后端 API: http://localhost:8080
 - 管理后台: http://localhost:3000
 
-修改端口：编辑 `.env` 文件后重新构建
-```bash
-# .env
-BACKEND_PORT=8080
-ADMIN_PORT=3000
-DB_PORT=5432
-```
+### 生产环境部署
+
+使用 **运行时环境变量** 方案,无需重新构建镜像。
+
+详细部署步骤: [DEPLOY.md](./DEPLOY.md)
+
+快速部署:
 
 ```bash
-# 修改端口后需要重新构建（因为前端 API 地址在构建时注入）
-docker-compose up -d --build
+# 1. 下载配置文件
+curl -O https://raw.githubusercontent.com/EmccK/DualTabBackend/main/docker-compose.prod.yml
+curl -O https://raw.githubusercontent.com/EmccK/DualTabBackend/main/.env.prod.example
+
+# 2. 配置环境变量
+cp .env.prod.example .env.prod
+vim .env.prod  # 修改 API_URL、密码等
+
+# 3. 启动服务(无需 --build)
+docker-compose -f docker-compose.prod.yml --env-file .env.prod up -d
 ```
+
+访问: `http://你的IP:3000`
 
 ### 本地开发
 
@@ -203,4 +213,6 @@ npm run dev
 
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
-| NEXT_PUBLIC_API_URL | 后端 API 地址（构建时注入） | http://localhost:18080 |
+| API_URL | 后端 API 地址(运行时配置) | http://localhost:8080 |
+
+**注意**: 使用 `API_URL` 运行时环境变量,修改后只需重启容器即可生效。

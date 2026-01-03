@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { EnvScript } from "@/components/env-script";
 
 export const metadata: Metadata = {
   title: "DualTab 管理后台",
@@ -13,6 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="zh-CN">
+      <head>
+        <EnvScript />
+      </head>
       <body className="antialiased">
         {children}
       </body>

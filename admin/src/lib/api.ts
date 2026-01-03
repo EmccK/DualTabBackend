@@ -1,5 +1,28 @@
-// API 基础配置（默认值与 Dockerfile 保持一致）
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080'
+// 运行时环境变量类型定义
+declare global {
+  interface Window {
+    __ENV__?: {
+      API_URL?: string
+    }
+  }
+}
+
+// API 基础配置
+// 标准做法: 运行时环境变量注入(window.__ENV__)
+const API_BASE_URL = (() => {
+  // 1. 优先使用运行时环境变量(Docker 容器启动时注入)
+  if (typeof window !== 'undefined' && window.__ENV__?.API_URL) {
+    return window.__ENV__.API_URL
+  }
+
+  // 2. 使用构建时环境变量(开发环境)
+  if (process.env.NEXT_PUBLIC_API_URL) {
+    return process.env.NEXT_PUBLIC_API_URL
+  }
+
+  // 3. 默认值(本地开发)
+  return 'http://localhost:8080'
+})()
 
 // 获取 Token
 function getToken(): string | null {
