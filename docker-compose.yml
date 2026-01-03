@@ -1,0 +1,70 @@
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: dualtab-db
+    environment:
+      POSTGRES_USER: dualtab
+      POSTGRES_PASSWORD: dualtab123
+      POSTGRES_DB: dualtab
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dualtab"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dualtab-network
+
+  # Go 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: dualtab-backend
+    environment:
+      - PORT=8080
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USER=dualtab
+      - DB_PASSWORD=dualtab123
+      - DB_NAME=dualtab
+      - JWT_SECRET=your-jwt-secret-key-change-in-production
+      - UPLOAD_PATH=/app/uploads
+      - UPLOAD_URL=http://localhost:${BACKEND_PORT:-8080}/uploads
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
+    volumes:
+      - ./uploads:/app/uploads
+    ports:
+      - "${BACKEND_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dualtab-network
+
+  # Next.js 管理前端
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:${BACKEND_PORT:-8080}
+    container_name: dualtab-admin
+    ports:
+      - "${ADMIN_PORT:-3000}:3000"
+    depends_on:
+      - backend
+    networks:
+      - dualtab-network
+
+volumes:
+  postgres_data:
+
+networks:
+  dualtab-network:
+    driver: bridge

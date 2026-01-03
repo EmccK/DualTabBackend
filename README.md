@@ -1,0 +1,164 @@
+# DualTab 后台管理系统
+
+DualTab Chrome 扩展的后端服务和管理后台。
+
+## 技术栈
+
+- **后端**: Go + Gin + GORM
+- **数据库**: PostgreSQL
+- **管理前端**: Next.js + shadcn/ui
+- **部署**: Docker
+
+## 快速开始
+
+### 使用 Docker（推荐）
+
+```bash
+# 启动所有服务
+docker-compose up -d
+
+# 查看日志
+docker-compose logs -f
+
+# 停止服务
+docker-compose down
+```
+
+默认服务地址：
+- 后端 API: http://localhost:8080
+- 管理后台: http://localhost:3000
+
+修改端口：编辑 `.env` 文件后重新构建
+```bash
+# .env
+BACKEND_PORT=8080
+ADMIN_PORT=3000
+DB_PORT=5432
+```
+
+```bash
+# 修改端口后需要重新构建（因为前端 API 地址在构建时注入）
+docker-compose up -d --build
+```
+
+### 本地开发
+
+**后端**
+
+```bash
+cd backend
+
+# 安装依赖
+go mod tidy
+
+# 复制环境变量
+cp .env.example .env
+
+# 启动 PostgreSQL（需要先安装）
+# 或使用 Docker: docker-compose up -d postgres
+
+# 运行
+go run main.go
+```
+
+**管理前端**
+
+```bash
+cd admin
+
+# 安装依赖
+npm install
+
+# 运行
+npm run dev
+```
+
+## 默认账号
+
+- 用户名: `admin`
+- 密码: `admin123`
+
+## API 文档
+
+### 对外 API（供 DualTab 扩展调用）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/icon/list` | 获取推荐书签列表 |
+| GET | `/icon/byurl` | 根据 URL 获取图标 |
+| GET | `/search-engines` | 获取搜索引擎列表 |
+| GET | `/categories` | 获取分类列表 |
+
+### 管理后台 API
+
+需要在请求头中携带 `Authorization: Bearer <token>`
+
+**认证**
+- POST `/admin/auth/login` - 登录
+- GET `/admin/auth/me` - 获取当前用户
+
+**图标管理**
+- GET `/admin/icons` - 图标列表
+- POST `/admin/icons` - 创建图标
+- PUT `/admin/icons/:id` - 更新图标
+- DELETE `/admin/icons/:id` - 删除图标
+
+**分类管理**
+- GET `/admin/categories` - 分类列表
+- POST `/admin/categories` - 创建分类
+- PUT `/admin/categories/:id` - 更新分类
+- DELETE `/admin/categories/:id` - 删除分类
+
+**搜索引擎管理**
+- GET `/admin/search-engines` - 搜索引擎列表
+- POST `/admin/search-engines` - 创建搜索引擎
+- PUT `/admin/search-engines/:id` - 更新搜索引擎
+- DELETE `/admin/search-engines/:id` - 删除搜索引擎
+
+**文件上传**
+- POST `/admin/upload/icon` - 上传图标图片
+
+## 目录结构
+
+```
+.
+├── backend/                 # Go 后端
+│   ├── config/             # 配置
+│   ├── internal/
+│   │   ├── handler/        # HTTP 处理器
+│   │   ├── middleware/     # 中间件
+│   │   ├── model/          # 数据模型
+│   │   ├── repository/     # 数据访问层
+│   │   └── router/         # 路由
+│   ├── pkg/                # 公共包
+│   └── migrations/         # 数据库迁移
+├── admin/                   # Next.js 管理前端
+│   └── src/
+│       ├── app/            # 页面
+│       ├── components/     # 组件
+│       └── lib/            # 工具函数
+├── uploads/                 # 上传文件
+└── docker-compose.yml
+```
+
+## 环境变量
+
+### 后端
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| PORT | 服务端口 | 8080 |
+| DB_HOST | 数据库地址 | localhost |
+| DB_PORT | 数据库端口 | 5432 |
+| DB_USER | 数据库用户 | dualtab |
+| DB_PASSWORD | 数据库密码 | dualtab123 |
+| DB_NAME | 数据库名 | dualtab |
+| JWT_SECRET | JWT 密钥 | - |
+| UPLOAD_PATH | 上传目录 | ./uploads |
+| UPLOAD_URL | 上传文件访问 URL | http://localhost:18080/uploads |
+
+### 管理前端
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| NEXT_PUBLIC_API_URL | 后端 API 地址（构建时注入） | http://localhost:18080 |
