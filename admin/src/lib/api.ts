@@ -330,3 +330,138 @@ export const searchEngineApi = {
       method: 'DELETE',
     }),
 }
+
+// ========== 壁纸 API ==========
+
+export interface Wallpaper {
+  id: number
+  uuid: string
+  title: string
+  url: string
+  thumb_url: string
+  source: string
+  sort_order: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface WallpaperListParams {
+  page?: number
+  size?: number
+  [key: string]: string | number | undefined
+}
+
+export interface CreateWallpaperRequest {
+  title: string
+  url: string
+  thumb_url?: string
+  source?: string
+  sort_order?: number
+  is_active?: boolean
+}
+
+export interface UpdateWallpaperRequest {
+  title?: string
+  url?: string
+  thumb_url?: string
+  source?: string
+  sort_order?: number
+  is_active?: boolean
+}
+
+export const wallpaperApi = {
+  // 获取列表
+  list: (params?: WallpaperListParams) =>
+    request<PageData<Wallpaper>>('/admin/wallpapers', { params }),
+
+  // 获取详情
+  get: (id: number) => request<Wallpaper>(`/admin/wallpapers/${id}`),
+
+  // 创建
+  create: (data: CreateWallpaperRequest) =>
+    request<Wallpaper>('/admin/wallpapers', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  // 更新
+  update: (id: number, data: UpdateWallpaperRequest) =>
+    request<Wallpaper>(`/admin/wallpapers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    }),
+
+  // 删除
+  delete: (id: number) =>
+    request<null>(`/admin/wallpapers/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // 上传壁纸
+  upload: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const token = getToken()
+    const response = await fetch(`${API_BASE_URL}/admin/upload/wallpaper`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: formData,
+    })
+
+    const data: ApiResponse<{ url: string }> = await response.json()
+    if (!response.ok) {
+      throw new Error(data.msg || '上传失败')
+    }
+    return data.data
+  },
+}
+
+// ========== 系统配置 API ==========
+
+export interface SystemConfig {
+  id: number
+  key: string
+  value: string
+  remark: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ConfigKeyInfo {
+  key: string
+  remark: string
+  default_value: string
+}
+
+export const configApi = {
+  // 获取配置列表
+  list: () => request<{ list: SystemConfig[] }>('/admin/configs'),
+
+  // 获取可用配置项说明
+  getKeys: () => request<{ list: ConfigKeyInfo[] }>('/admin/configs/keys'),
+
+  // 获取单个配置
+  get: (key: string) => request<SystemConfig>(`/admin/configs/${key}`),
+
+  // 设置配置
+  set: (key: string, value: string) =>
+    request<SystemConfig>('/admin/configs', {
+      method: 'POST',
+      body: JSON.stringify({ key, value }),
+    }),
+
+  // 批量设置配置
+  batchSet: (configs: { key: string; value: string }[]) =>
+    request<null>('/admin/configs/batch', {
+      method: 'POST',
+      body: JSON.stringify({ configs }),
+    }),
+
+  // 删除配置
+  delete: (key: string) =>
+    request<null>(`/admin/configs/${key}`, {
+      method: 'DELETE',
+    }),
+}

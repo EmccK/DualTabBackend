@@ -3,7 +3,7 @@
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { LayoutGrid, Image, Search, FolderOpen, LogOut, KeyRound } from "lucide-react"
+import { LayoutGrid, Image, Search, FolderOpen, LogOut, KeyRound, ImageIcon, Settings } from "lucide-react"
 import { clearToken, authApi } from "@/lib/api"
 import { cn } from "@/lib/utils"
 import {
@@ -21,6 +21,8 @@ const navItems = [
   { href: "/dashboard/icons", label: "图标管理", icon: Image },
   { href: "/dashboard/categories", label: "分类管理", icon: FolderOpen },
   { href: "/dashboard/search-engines", label: "搜索引擎", icon: Search },
+  { href: "/dashboard/wallpapers", label: "壁纸管理", icon: ImageIcon },
+  { href: "/dashboard/settings", label: "系统配置", icon: Settings },
 ]
 
 export function Sidebar() {

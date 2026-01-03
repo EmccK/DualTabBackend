@@ -45,10 +45,15 @@ func AdminAuth(jwtSecret string) gin.HandlerFunc {
 // CORS 跨域中间件
 func CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
-		c.Header("Access-Control-Max-Age", "86400")
+		origin := c.GetHeader("Origin")
+
+		// 允许浏览器扩展和本地开发环境
+		if isAllowedOrigin(origin) {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, secret")
+			c.Header("Access-Control-Max-Age", "86400")
+		}
 
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
@@ -57,4 +62,40 @@ func CORS() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// isAllowedOrigin 检查 Origin 是否允许访问
+func isAllowedOrigin(origin string) bool {
+	// 允许浏览器扩展
+	if isExtensionOrigin(origin) {
+		return true
+	}
+
+	// 允许本地开发环境
+	if strings.HasPrefix(origin, "http://localhost") ||
+	   strings.HasPrefix(origin, "http://127.0.0.1") {
+		return true
+	}
+
+	// 允许管理后台域名（如果有）
+	allowedDomains := []string{
+		"https://admin.dualtab.emcck.com",
+		// 可以在这里添加更多允许的域名
+	}
+
+	for _, domain := range allowedDomains {
+		if origin == domain {
+			return true
+		}
+	}
+
+	return false
+}
+
+// isExtensionOrigin 判断是否为浏览器扩展 Origin
+func isExtensionOrigin(origin string) bool {
+	return strings.HasPrefix(origin, "chrome-extension://") ||
+		strings.HasPrefix(origin, "moz-extension://") ||
+		strings.HasPrefix(origin, "extension://") ||
+		strings.HasPrefix(origin, "safari-web-extension://")
 }

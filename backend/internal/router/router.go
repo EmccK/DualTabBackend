@@ -22,17 +22,29 @@ func Setup(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	categoryRepo := repository.NewCategoryRepo(db)
 	iconRepo := repository.NewIconRepo(db)
 	searchEngineRepo := repository.NewSearchEngineRepo(db)
+	wallpaperRepo := repository.NewWallpaperRepo(db)
+	systemConfigRepo := repository.NewSystemConfigRepo(db)
+	userRepo := repository.NewUserRepo(db)
+	userDataRepo := repository.NewUserDataRepo(db)
 
 	// 创建管理后台处理器
 	authHandler := adminHandler.NewAuthHandler(adminUserRepo, cfg.JWTSecret)
 	adminCategoryHandler := adminHandler.NewCategoryHandler(categoryRepo)
 	adminIconHandler := adminHandler.NewIconHandler(iconRepo, uploader)
 	adminSearchEngineHandler := adminHandler.NewSearchEngineHandler(searchEngineRepo)
+	adminWallpaperHandler := adminHandler.NewWallpaperHandler(wallpaperRepo, uploader)
+	adminSystemConfigHandler := adminHandler.NewSystemConfigHandler(systemConfigRepo)
 
 	// 创建对外 API 处理器
 	apiIconHandler := apiHandler.NewIconHandler(iconRepo)
 	apiSearchEngineHandler := apiHandler.NewSearchEngineHandler(searchEngineRepo)
 	apiCategoryHandler := apiHandler.NewCategoryHandler(categoryRepo)
+	apiWallpaperHandler := apiHandler.NewWallpaperHandler(wallpaperRepo, systemConfigRepo)
+	apiWeatherHandler := apiHandler.NewWeatherHandler(systemConfigRepo)
+	apiProxyHandler := apiHandler.NewProxyHandler(systemConfigRepo)
+	apiUserHandler := apiHandler.NewUserHandler(userRepo, userDataRepo)
+	apiCaptchaHandler := apiHandler.NewCaptchaHandler()
+	apiUploadHandler := apiHandler.NewUploadHandler(uploader)
 
 	// 中间件
 	r.Use(middleware.CORS())
@@ -46,10 +58,44 @@ func Setup(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	})
 
 	// ========== 对外 API（兼容 MonkNow）==========
+	// 图标相关
 	r.GET("/icon/list", apiIconHandler.GetList)
 	r.GET("/icon/byurl", apiIconHandler.GetByURL)
+
+	// 搜索引擎和分类
 	r.GET("/search-engines", apiSearchEngineHandler.GetList)
 	r.GET("/categories", apiCategoryHandler.GetList)
+
+	// 壁纸 API
+	r.GET("/wallpaper/random", apiWallpaperHandler.GetRandom)
+	r.GET("/wallpaper/list", apiWallpaperHandler.GetList)
+
+	// 天气 API
+	r.GET("/weather/locations", apiWeatherHandler.SearchLocations)
+	r.GET("/weather", apiWeatherHandler.GetWeather)
+
+	// 代理服务 API
+	r.GET("/proxy/search-suggest", apiProxyHandler.SearchSuggest)
+
+	// ========== 用户 API（兼容 MonkNow）==========
+	// 验证码
+	r.GET("/home/captcha", apiCaptchaHandler.GetCaptcha)
+
+	// 用户认证
+	r.POST("/user/login", apiUserHandler.Login)
+	r.POST("/user/register", apiUserHandler.Register)
+
+	// 用户数据同步（需要 secret 请求头）
+	r.GET("/user/data/info", apiUserHandler.GetUserData)
+	r.PUT("/user/data/update", apiUserHandler.UpdateUserData)
+
+	// 用户资料修改
+	r.PUT("/user/changename", apiUserHandler.ChangeName)
+	r.PUT("/user/changeavatar", apiUserHandler.ChangeAvatar)
+	r.PUT("/user/changepwd", apiUserHandler.ChangePassword)
+
+	// 图片上传 API
+	r.POST("/upload/image", apiUploadHandler.UploadImage)
 
 	// ========== 管理后台 API ==========
 	adminGroup := r.Group("/admin")
@@ -87,8 +133,24 @@ func Setup(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 			authGroup.PUT("/search-engines/:id", adminSearchEngineHandler.Update)
 			authGroup.DELETE("/search-engines/:id", adminSearchEngineHandler.Delete)
 
+			// 壁纸管理
+			authGroup.GET("/wallpapers", adminWallpaperHandler.List)
+			authGroup.GET("/wallpapers/:id", adminWallpaperHandler.Get)
+			authGroup.POST("/wallpapers", adminWallpaperHandler.Create)
+			authGroup.PUT("/wallpapers/:id", adminWallpaperHandler.Update)
+			authGroup.DELETE("/wallpapers/:id", adminWallpaperHandler.Delete)
+
+			// 系统配置管理
+			authGroup.GET("/configs", adminSystemConfigHandler.List)
+			authGroup.GET("/configs/keys", adminSystemConfigHandler.GetConfigKeys)
+			authGroup.GET("/configs/:key", adminSystemConfigHandler.Get)
+			authGroup.POST("/configs", adminSystemConfigHandler.Set)
+			authGroup.POST("/configs/batch", adminSystemConfigHandler.BatchSet)
+			authGroup.DELETE("/configs/:key", adminSystemConfigHandler.Delete)
+
 			// 文件上传
 			authGroup.POST("/upload/icon", adminIconHandler.UploadIcon)
+			authGroup.POST("/upload/wallpaper", adminWallpaperHandler.UploadWallpaper)
 		}
 	}
 }

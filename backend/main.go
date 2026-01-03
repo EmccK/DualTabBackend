@@ -38,6 +38,10 @@ func main() {
 		&model.Category{},
 		&model.Icon{},
 		&model.SearchEngine{},
+		&model.Wallpaper{},
+		&model.SystemConfig{},
+		&model.User{},
+		&model.UserData{},
 	); err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
 	}

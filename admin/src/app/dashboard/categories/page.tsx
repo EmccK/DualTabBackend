@@ -12,8 +12,8 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { categoryApi, type Category, type CreateCategoryRequest } from "@/lib/api"
-import { Plus, Pencil, Trash2, GripVertical } from "lucide-react"
+import { categoryApi, iconApi, type Category, type CreateCategoryRequest, type Icon, type CreateIconRequest } from "@/lib/api"
+import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, ExternalLink, GripVertical, Upload } from "lucide-react"
 import {
   DndContext,
   closestCenter,
@@ -32,15 +32,29 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 
-// 可拖拽的行组件
-function SortableRow({
+// 可拖拽的分类行组件
+function SortableCategoryRow({
   category,
+  isExpanded,
+  icons,
+  isLoadingIcons,
+  onToggleExpand,
   onEdit,
   onDelete,
+  onAddIcon,
+  onEditIcon,
+  onDeleteIcon,
 }: {
   category: Category
+  isExpanded: boolean
+  icons: Icon[]
+  isLoadingIcons: boolean
+  onToggleExpand: (id: number) => void
   onEdit: (category: Category) => void
   onDelete: (id: number) => void
+  onAddIcon: (categoryId: number) => void
+  onEditIcon: (icon: Icon) => void
+  onDeleteIcon: (iconId: number, categoryId: number) => void
 }) {
   const {
     attributes,
@@ -55,44 +69,65 @@ function SortableRow({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 1 : 0,
   }
 
   return (
-    <tr
-      ref={setNodeRef}
-      style={style}
-      className="border-b border-gray-100 hover:bg-orange-50/50"
-    >
-      <td className="p-4 w-12">
+    <div ref={setNodeRef} style={style}>
+      {/* 分类行 */}
+      <div className="flex items-center p-4 hover:bg-gray-50 bg-white">
+        {/* 拖拽手柄 */}
         <button
           {...attributes}
           {...listeners}
-          className="cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
+          className="p-1 mr-2 cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600"
         >
           <GripVertical className="h-5 w-5" />
         </button>
-      </td>
-      <td className="p-4 text-gray-500 w-16">{category.id}</td>
-      <td className="p-4 font-medium text-gray-900">{category.name}</td>
-      <td className="p-4 text-gray-500">{category.name_en || "-"}</td>
-      <td className="p-4">
-        <span
-          className={`px-2 py-1 rounded-full text-xs ${
-            category.is_active
-              ? "bg-green-100 text-green-700"
-              : "bg-gray-100 text-gray-700"
-          }`}
+
+        {/* 展开按钮 */}
+        <button
+          onClick={() => onToggleExpand(category.id)}
+          className="p-1 mr-2 text-gray-400 hover:text-gray-600 rounded"
         >
-          {category.is_active ? "启用" : "禁用"}
-        </span>
-      </td>
-      <td className="p-4">
-        <div className="flex gap-2">
+          {isExpanded ? (
+            <ChevronDown className="h-5 w-5" />
+          ) : (
+            <ChevronRight className="h-5 w-5" />
+          )}
+        </button>
+
+        {/* 分类信息 */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3">
+            <span className="font-medium text-gray-900">{category.name}</span>
+            {category.name_en && (
+              <span className="text-sm text-gray-400">({category.name_en})</span>
+            )}
+            <span
+              className={`px-2 py-0.5 rounded-full text-xs ${
+                category.is_active
+                  ? "bg-green-100 text-green-700"
+                  : "bg-gray-100 text-gray-500"
+              }`}
+            >
+              {category.is_active ? "启用" : "禁用"}
+            </span>
+            {icons.length > 0 && (
+              <span className="text-sm text-gray-400">
+                {icons.length} 个书签
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* 操作按钮 */}
+        <div className="flex gap-1">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => onEdit(category)}
-            className="text-gray-600 hover:text-orange-500 hover:bg-orange-50"
+            className="text-gray-500 hover:text-orange-500 hover:bg-orange-50"
           >
             <Pencil className="h-4 w-4" />
           </Button>
@@ -100,13 +135,107 @@ function SortableRow({
             variant="ghost"
             size="icon"
             onClick={() => onDelete(category.id)}
-            className="text-gray-600 hover:text-red-500 hover:bg-red-50"
+            className="text-gray-500 hover:text-red-500 hover:bg-red-50"
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      </td>
-    </tr>
+      </div>
+
+      {/* 展开的图标列表 */}
+      {isExpanded && (
+        <div className="bg-gray-50 border-t border-gray-100">
+          {isLoadingIcons ? (
+            <div className="p-4 text-center text-gray-500 text-sm">
+              加载中...
+            </div>
+          ) : (
+            <div className="p-4">
+              {/* 添加书签按钮 */}
+              <div className="mb-3 flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={() => onAddIcon(category.id)}
+                  className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  添加书签
+                </Button>
+              </div>
+
+              {icons.length === 0 ? (
+                <div className="text-center text-gray-400 text-sm py-4">
+                  该分类下暂无书签，点击上方按钮添加
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                  {icons.map((icon) => (
+                    <div
+                      key={icon.id}
+                      className="group relative flex items-center gap-3 p-3 bg-white rounded-lg border border-gray-200 hover:border-orange-300 hover:shadow-sm transition-all"
+                    >
+                      <div
+                        className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: icon.bg_color || '#f3f4f6' }}
+                      >
+                        {icon.img_url ? (
+                          <img
+                            src={icon.img_url}
+                            alt={icon.title}
+                            className="w-6 h-6 object-contain"
+                          />
+                        ) : (
+                          <span className="text-sm font-medium text-gray-600">
+                            {icon.title[0]}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 text-sm truncate">
+                          {icon.title}
+                        </div>
+                        <div className="text-xs text-gray-400 truncate">
+                          {(() => {
+                            try {
+                              return new URL(icon.url).hostname
+                            } catch {
+                              return icon.url
+                            }
+                          })()}
+                        </div>
+                      </div>
+                      {/* 操作按钮 - 悬停显示 */}
+                      <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => onEditIcon(icon)}
+                          className="p-1 rounded bg-white shadow-sm border border-gray-200 text-gray-500 hover:text-orange-500 hover:border-orange-300"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => onDeleteIcon(icon.id, category.id)}
+                          className="p-1 rounded bg-white shadow-sm border border-gray-200 text-gray-500 hover:text-red-500 hover:border-red-300"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                        <a
+                          href={icon.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 rounded bg-white shadow-sm border border-gray-200 text-gray-500 hover:text-blue-500 hover:border-blue-300"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -122,6 +251,26 @@ export default function CategoriesPage() {
     is_active: true,
   })
 
+  // 展开状态和图标数据
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set())
+  const [categoryIcons, setCategoryIcons] = useState<Record<number, Icon[]>>({})
+  const [loadingIcons, setLoadingIcons] = useState<Set<number>>(new Set())
+
+  // 书签编辑相关状态
+  const [iconDialogOpen, setIconDialogOpen] = useState(false)
+  const [editingIcon, setEditingIcon] = useState<Icon | null>(null)
+  const [iconFormData, setIconFormData] = useState<CreateIconRequest>({
+    title: "",
+    description: "",
+    url: "",
+    img_url: "",
+    bg_color: "#ffffff",
+    category_id: 0,
+    sort_order: 0,
+    is_active: true,
+  })
+  const [uploading, setUploading] = useState(false)
+
   // 拖拽传感器配置
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -134,7 +283,6 @@ export default function CategoriesPage() {
     setLoading(true)
     try {
       const data = await categoryApi.list()
-      // 按 sort_order 排序
       const sorted = [...data.list].sort((a, b) => a.sort_order - b.sort_order)
       setCategories(sorted)
     } catch (error) {
@@ -168,9 +316,42 @@ export default function CategoriesPage() {
         )
       } catch (error) {
         console.error("更新排序失败:", error)
-        // 失败时重新获取列表
         fetchCategories()
       }
+    }
+  }
+
+  // 切换展开/收起
+  const toggleExpand = async (categoryId: number) => {
+    const newExpanded = new Set(expandedIds)
+
+    if (newExpanded.has(categoryId)) {
+      newExpanded.delete(categoryId)
+    } else {
+      newExpanded.add(categoryId)
+      // 如果还没加载过该分类的图标，则加载
+      if (!categoryIcons[categoryId]) {
+        await fetchCategoryIcons(categoryId)
+      }
+    }
+
+    setExpandedIds(newExpanded)
+  }
+
+  // 获取分类下的图标
+  const fetchCategoryIcons = async (categoryId: number) => {
+    setLoadingIcons(prev => new Set(prev).add(categoryId))
+    try {
+      const data = await iconApi.list({ category_id: categoryId, size: 100 })
+      setCategoryIcons(prev => ({ ...prev, [categoryId]: data.list }))
+    } catch (error) {
+      console.error("获取图标失败:", error)
+    } finally {
+      setLoadingIcons(prev => {
+        const next = new Set(prev)
+        next.delete(categoryId)
+        return next
+      })
     }
   }
 
@@ -197,7 +378,7 @@ export default function CategoriesPage() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm("确定要删除这个分类吗？")) return
+    if (!confirm("确定要删除这个分类吗？删除后该分类下的图标将变为未分类状态。")) return
     try {
       await categoryApi.delete(id)
       fetchCategories()
@@ -220,12 +401,85 @@ export default function CategoriesPage() {
     }
   }
 
+  // ========== 书签相关操作 ==========
+  const handleAddIcon = (categoryId: number) => {
+    setEditingIcon(null)
+    setIconFormData({
+      title: "",
+      description: "",
+      url: "",
+      img_url: "",
+      bg_color: "#ffffff",
+      category_id: categoryId,
+      sort_order: 0,
+      is_active: true,
+    })
+    setIconDialogOpen(true)
+  }
+
+  const handleEditIcon = (icon: Icon) => {
+    setEditingIcon(icon)
+    setIconFormData({
+      title: icon.title,
+      description: icon.description,
+      url: icon.url,
+      img_url: icon.img_url,
+      bg_color: icon.bg_color,
+      category_id: icon.category_id,
+      sort_order: icon.sort_order,
+      is_active: icon.is_active,
+    })
+    setIconDialogOpen(true)
+  }
+
+  const handleDeleteIcon = async (iconId: number, categoryId: number) => {
+    if (!confirm("确定要删除这个书签吗？")) return
+    try {
+      await iconApi.delete(iconId)
+      // 刷新该分类的图标列表
+      await fetchCategoryIcons(categoryId)
+    } catch (error) {
+      console.error("删除失败:", error)
+    }
+  }
+
+  const handleIconSubmit = async () => {
+    try {
+      if (editingIcon) {
+        await iconApi.update(editingIcon.id, iconFormData)
+      } else {
+        await iconApi.create(iconFormData)
+      }
+      setIconDialogOpen(false)
+      // 刷新该分类的图标列表
+      if (iconFormData.category_id) {
+        await fetchCategoryIcons(iconFormData.category_id)
+      }
+    } catch (error) {
+      console.error("保存失败:", error)
+    }
+  }
+
+  const handleIconUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true)
+    try {
+      const data = await iconApi.upload(file)
+      setIconFormData({ ...iconFormData, img_url: data.url })
+    } catch (error) {
+      console.error("上传失败:", error)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">分类管理</h1>
-          <p className="text-gray-500 mt-2">拖动调整顺序，管理图标分类</p>
+          <p className="text-gray-500 mt-2">拖动排序，点击箭头展开查看书签</p>
         </div>
         <Button onClick={handleCreate} className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white">
           <Plus className="h-4 w-4 mr-2" />
@@ -234,53 +488,40 @@ export default function CategoriesPage() {
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <table className="w-full">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="p-4 text-left text-gray-700 font-medium w-12"></th>
-                <th className="p-4 text-left text-gray-700 font-medium w-16">ID</th>
-                <th className="p-4 text-left text-gray-700 font-medium">名称</th>
-                <th className="p-4 text-left text-gray-700 font-medium">英文名</th>
-                <th className="p-4 text-left text-gray-700 font-medium w-20">状态</th>
-                <th className="p-4 text-left text-gray-700 font-medium w-24">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-8 text-gray-500">
-                    加载中...
-                  </td>
-                </tr>
-              ) : categories.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="text-center py-8 text-gray-500">
-                    暂无数据
-                  </td>
-                </tr>
-              ) : (
-                <SortableContext
-                  items={categories.map((c) => c.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {categories.map((category) => (
-                    <SortableRow
-                      key={category.id}
-                      category={category}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                    />
-                  ))}
-                </SortableContext>
-              )}
-            </tbody>
-          </table>
-        </DndContext>
+        {loading ? (
+          <div className="text-center py-12 text-gray-500">加载中...</div>
+        ) : categories.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">暂无数据</div>
+        ) : (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={categories.map((c) => c.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="divide-y divide-gray-100">
+                {categories.map((category) => (
+                  <SortableCategoryRow
+                    key={category.id}
+                    category={category}
+                    isExpanded={expandedIds.has(category.id)}
+                    icons={categoryIcons[category.id] || []}
+                    isLoadingIcons={loadingIcons.has(category.id)}
+                    onToggleExpand={toggleExpand}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    onAddIcon={handleAddIcon}
+                    onEditIcon={handleEditIcon}
+                    onDeleteIcon={handleDeleteIcon}
+                  />
+                ))}
+              </div>
+            </SortableContext>
+          </DndContext>
+        )}
       </div>
 
       {/* 编辑对话框 */}
@@ -329,6 +570,134 @@ export default function CategoriesPage() {
               取消
             </Button>
             <Button onClick={handleSubmit} className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white">保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 书签编辑对话框 */}
+      <Dialog open={iconDialogOpen} onOpenChange={setIconDialogOpen}>
+        <DialogContent className="max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="text-gray-900">
+              {editingIcon ? "编辑书签" : "添加书签"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-gray-700">标题 *</Label>
+              <Input
+                value={iconFormData.title}
+                onChange={(e) =>
+                  setIconFormData({ ...iconFormData, title: e.target.value })
+                }
+                placeholder="请输入标题"
+                className="bg-white text-gray-900 border-gray-200 placeholder:text-gray-400"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-700">描述</Label>
+              <Input
+                value={iconFormData.description}
+                onChange={(e) =>
+                  setIconFormData({ ...iconFormData, description: e.target.value })
+                }
+                placeholder="请输入描述"
+                className="bg-white text-gray-900 border-gray-200 placeholder:text-gray-400"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-700">URL *</Label>
+              <Input
+                value={iconFormData.url}
+                onChange={(e) =>
+                  setIconFormData({ ...iconFormData, url: e.target.value })
+                }
+                placeholder="https://example.com"
+                className="bg-white text-gray-900 border-gray-200 placeholder:text-gray-400"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-700">图标</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={iconFormData.img_url}
+                  onChange={(e) =>
+                    setIconFormData({ ...iconFormData, img_url: e.target.value })
+                  }
+                  placeholder="图标 URL"
+                  className="flex-1 bg-white text-gray-900 border-gray-200 placeholder:text-gray-400"
+                />
+                <Button variant="outline" asChild disabled={uploading} className="border-gray-200 text-gray-700 hover:bg-gray-50">
+                  <label className="cursor-pointer">
+                    <Upload className="h-4 w-4" />
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleIconUpload}
+                    />
+                  </label>
+                </Button>
+              </div>
+              {uploading && <p className="text-sm text-gray-500">上传中...</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-gray-700">背景色</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="color"
+                    value={iconFormData.bg_color}
+                    onChange={(e) =>
+                      setIconFormData({ ...iconFormData, bg_color: e.target.value })
+                    }
+                    className="w-12 h-9 p-1 border-gray-200"
+                  />
+                  <Input
+                    value={iconFormData.bg_color}
+                    onChange={(e) =>
+                      setIconFormData({ ...iconFormData, bg_color: e.target.value })
+                    }
+                    className="flex-1 bg-white text-gray-900 border-gray-200"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-gray-700">分类</Label>
+                <select
+                  value={iconFormData.category_id}
+                  onChange={(e) =>
+                    setIconFormData({
+                      ...iconFormData,
+                      category_id: Number(e.target.value),
+                    })
+                  }
+                  className="w-full h-9 rounded-md border border-gray-200 px-3 bg-white text-gray-900"
+                >
+                  <option value={0}>请选择分类</option>
+                  {categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={iconFormData.is_active}
+                onCheckedChange={(checked) =>
+                  setIconFormData({ ...iconFormData, is_active: checked })
+                }
+              />
+              <Label className="text-gray-700">启用</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIconDialogOpen(false)} className="border-gray-200 text-gray-700 hover:bg-gray-50">
+              取消
+            </Button>
+            <Button onClick={handleIconSubmit} className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white">保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

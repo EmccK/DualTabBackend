@@ -99,3 +99,68 @@ func (u *Uploader) UploadIcon(file *multipart.FileHeader) (string, error) {
 	// 返回访问 URL
 	return fmt.Sprintf("%s/icons/%s", u.BaseURL, filename), nil
 }
+
+// Upload 通用上传方法
+func (u *Uploader) Upload(file *multipart.FileHeader, subDir string) (string, error) {
+	// 验证文件类型
+	contentType := file.Header.Get("Content-Type")
+	if !AllowedImageTypes[contentType] {
+		return "", fmt.Errorf("不支持的文件类型: %s", contentType)
+	}
+
+	// 壁纸允许更大的文件 (10MB)
+	maxSize := int64(MaxFileSize)
+	if subDir == "wallpapers" {
+		maxSize = 10 * 1024 * 1024
+	}
+	if file.Size > maxSize {
+		return "", fmt.Errorf("文件大小超出限制")
+	}
+
+	// 生成唯一文件名
+	ext := filepath.Ext(file.Filename)
+	if ext == "" {
+		switch contentType {
+		case "image/png":
+			ext = ".png"
+		case "image/jpeg", "image/jpg":
+			ext = ".jpg"
+		case "image/svg+xml":
+			ext = ".svg"
+		case "image/webp":
+			ext = ".webp"
+		case "image/gif":
+			ext = ".gif"
+		default:
+			ext = ".png"
+		}
+	}
+	filename := uuid.New().String() + strings.ToLower(ext)
+
+	// 确保目录存在
+	targetDir := filepath.Join(u.BasePath, subDir)
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return "", fmt.Errorf("创建目录失败: %v", err)
+	}
+
+	// 保存文件
+	dst := filepath.Join(targetDir, filename)
+	src, err := file.Open()
+	if err != nil {
+		return "", fmt.Errorf("打开文件失败: %v", err)
+	}
+	defer src.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return "", fmt.Errorf("创建文件失败: %v", err)
+	}
+	defer out.Close()
+
+	if _, err = io.Copy(out, src); err != nil {
+		return "", fmt.Errorf("保存文件失败: %v", err)
+	}
+
+	// 返回访问 URL
+	return fmt.Sprintf("%s/%s/%s", u.BaseURL, subDir, filename), nil
+}

@@ -64,3 +64,11 @@ func SuccessWithPage(c *gin.Context, list interface{}, total int64, page, size i
 		Size:  size,
 	})
 }
+
+// MonkNowSuccess MonkNow 兼容的成功响应（msg: "success"）
+func MonkNowSuccess(c *gin.Context, data interface{}) {
+	c.JSON(http.StatusOK, gin.H{
+		"msg":  "success",
+		"data": data,
+	})
+}
