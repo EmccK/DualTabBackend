@@ -20,16 +20,21 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { iconApi, categoryApi, type Icon, type Category, type CreateIconRequest } from "@/lib/api"
 import { Plus, Pencil, Trash2, Upload } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function IconsPage() {
+  const { toast } = useToast()
   const [icons, setIcons] = useState<Icon[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [editingIcon, setEditingIcon] = useState<Icon | null>(null)
   const [formData, setFormData] = useState<CreateIconRequest>({
     title: "",
@@ -100,12 +105,29 @@ export default function IconsPage() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm("确定要删除这个图标吗？")) return
+    setDeletingId(id)
+    setConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingId) return
     try {
-      await iconApi.delete(id)
+      await iconApi.delete(deletingId)
       fetchIcons()
+      toast({
+        title: "删除成功",
+        description: "图标已成功删除",
+        variant: "success",
+      })
     } catch (error) {
       console.error("删除失败:", error)
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "删除图标时发生错误",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -118,8 +140,18 @@ export default function IconsPage() {
       }
       setDialogOpen(false)
       fetchIcons()
+      toast({
+        title: "保存成功",
+        description: editingIcon ? "图标已更新" : "图标已创建",
+        variant: "success",
+      })
     } catch (error) {
       console.error("保存失败:", error)
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "保存图标时发生错误",
+        variant: "destructive",
+      })
     }
   }
 
@@ -387,6 +419,18 @@ export default function IconsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 删除确认对话框 */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="删除图标"
+        description="确定要删除这个图标吗？此操作无法撤销。"
+        onConfirm={confirmDelete}
+        confirmText="删除"
+        cancelText="取消"
+        variant="destructive"
+      />
     </div>
   )
 }

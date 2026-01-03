@@ -12,15 +12,20 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { wallpaperApi, type Wallpaper, type CreateWallpaperRequest } from "@/lib/api"
 import { Plus, Pencil, Trash2, Upload, ImageIcon } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export default function WallpapersPage() {
+  const { toast } = useToast()
   const [wallpapers, setWallpapers] = useState<Wallpaper[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [editingWallpaper, setEditingWallpaper] = useState<Wallpaper | null>(null)
   const [uploading, setUploading] = useState(false)
   const [formData, setFormData] = useState<CreateWallpaperRequest>({
@@ -76,12 +81,29 @@ export default function WallpapersPage() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm("确定要删除这张壁纸吗？")) return
+    setDeletingId(id)
+    setConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingId) return
     try {
-      await wallpaperApi.delete(id)
+      await wallpaperApi.delete(deletingId)
       fetchWallpapers()
+      toast({
+        title: "删除成功",
+        description: "壁纸已成功删除",
+        variant: "success",
+      })
     } catch (error) {
       console.error("删除失败:", error)
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "删除壁纸时发生错误",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -94,8 +116,18 @@ export default function WallpapersPage() {
       }
       setDialogOpen(false)
       fetchWallpapers()
+      toast({
+        title: "保存成功",
+        description: editingWallpaper ? "壁纸已更新" : "壁纸已创建",
+        variant: "success",
+      })
     } catch (error) {
       console.error("保存失败:", error)
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "保存壁纸时发生错误",
+        variant: "destructive",
+      })
     }
   }
 
@@ -333,6 +365,18 @@ export default function WallpapersPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 删除确认对话框 */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="删除壁纸"
+        description="确定要删除这张壁纸吗？此操作无法撤销。"
+        onConfirm={confirmDelete}
+        confirmText="删除"
+        cancelText="取消"
+        variant="destructive"
+      />
     </div>
   )
 }

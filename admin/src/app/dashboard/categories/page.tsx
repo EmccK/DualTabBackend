@@ -12,8 +12,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { categoryApi, iconApi, type Category, type CreateCategoryRequest, type Icon, type CreateIconRequest } from "@/lib/api"
 import { Plus, Pencil, Trash2, ChevronDown, ChevronRight, ExternalLink, GripVertical, Upload } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import {
   DndContext,
   closestCenter,
@@ -240,9 +242,12 @@ function SortableCategoryRow({
 }
 
 export default function CategoriesPage() {
+  const { toast } = useToast()
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [formData, setFormData] = useState<CreateCategoryRequest>({
     name: "",
@@ -258,6 +263,9 @@ export default function CategoriesPage() {
 
   // 书签编辑相关状态
   const [iconDialogOpen, setIconDialogOpen] = useState(false)
+  const [iconConfirmOpen, setIconConfirmOpen] = useState(false)
+  const [deletingIconId, setDeletingIconId] = useState<number | null>(null)
+  const [deletingIconCategoryId, setDeletingIconCategoryId] = useState<number | null>(null)
   const [editingIcon, setEditingIcon] = useState<Icon | null>(null)
   const [iconFormData, setIconFormData] = useState<CreateIconRequest>({
     title: "",
@@ -378,12 +386,29 @@ export default function CategoriesPage() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm("确定要删除这个分类吗？删除后该分类下的图标将变为未分类状态。")) return
+    setDeletingId(id)
+    setConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingId) return
     try {
-      await categoryApi.delete(id)
+      await categoryApi.delete(deletingId)
       fetchCategories()
+      toast({
+        title: "删除成功",
+        description: "分类已成功删除",
+        variant: "success",
+      })
     } catch (error) {
       console.error("删除失败:", error)
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "删除分类时发生错误",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -396,8 +421,18 @@ export default function CategoriesPage() {
       }
       setDialogOpen(false)
       fetchCategories()
+      toast({
+        title: "保存成功",
+        description: editingCategory ? "分类已更新" : "分类已创建",
+        variant: "success",
+      })
     } catch (error) {
       console.error("保存失败:", error)
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "保存分类时发生错误",
+        variant: "destructive",
+      })
     }
   }
 
@@ -433,13 +468,31 @@ export default function CategoriesPage() {
   }
 
   const handleDeleteIcon = async (iconId: number, categoryId: number) => {
-    if (!confirm("确定要删除这个书签吗？")) return
+    setDeletingIconId(iconId)
+    setDeletingIconCategoryId(categoryId)
+    setIconConfirmOpen(true)
+  }
+
+  const confirmDeleteIcon = async () => {
+    if (!deletingIconId || !deletingIconCategoryId) return
     try {
-      await iconApi.delete(iconId)
-      // 刷新该分类的图标列表
-      await fetchCategoryIcons(categoryId)
+      await iconApi.delete(deletingIconId)
+      await fetchCategoryIcons(deletingIconCategoryId)
+      toast({
+        title: "删除成功",
+        description: "书签已成功删除",
+        variant: "success",
+      })
     } catch (error) {
       console.error("删除失败:", error)
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "删除书签时发生错误",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingIconId(null)
+      setDeletingIconCategoryId(null)
     }
   }
 
@@ -451,12 +504,21 @@ export default function CategoriesPage() {
         await iconApi.create(iconFormData)
       }
       setIconDialogOpen(false)
-      // 刷新该分类的图标列表
       if (iconFormData.category_id) {
         await fetchCategoryIcons(iconFormData.category_id)
       }
+      toast({
+        title: "保存成功",
+        description: editingIcon ? "书签已更新" : "书签已创建",
+        variant: "success",
+      })
     } catch (error) {
       console.error("保存失败:", error)
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "保存书签时发生错误",
+        variant: "destructive",
+      })
     }
   }
 
@@ -701,6 +763,30 @@ export default function CategoriesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 删除分类确认对话框 */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="删除分类"
+        description="确定要删除这个分类吗？删除后该分类下的书签将变为未分类状态。"
+        onConfirm={confirmDelete}
+        confirmText="删除"
+        cancelText="取消"
+        variant="destructive"
+      />
+
+      {/* 删除书签确认对话框 */}
+      <ConfirmDialog
+        open={iconConfirmOpen}
+        onOpenChange={setIconConfirmOpen}
+        title="删除书签"
+        description="确定要删除这个书签吗？此操作无法撤销。"
+        onConfirm={confirmDeleteIcon}
+        confirmText="删除"
+        cancelText="取消"
+        variant="destructive"
+      />
     </div>
   )
 }

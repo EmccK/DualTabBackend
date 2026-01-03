@@ -12,8 +12,10 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { searchEngineApi, iconApi, type SearchEngine, type CreateSearchEngineRequest } from "@/lib/api"
 import { Plus, Pencil, Trash2, Upload, GripVertical } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 import {
   DndContext,
   closestCenter,
@@ -123,9 +125,12 @@ function SortableRow({
 }
 
 export default function SearchEnginesPage() {
+  const { toast } = useToast()
   const [engines, setEngines] = useState<SearchEngine[]>([])
   const [loading, setLoading] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [deletingId, setDeletingId] = useState<number | null>(null)
   const [editingEngine, setEditingEngine] = useState<SearchEngine | null>(null)
   const [formData, setFormData] = useState<CreateSearchEngineRequest>({
     name: "",
@@ -212,12 +217,29 @@ export default function SearchEnginesPage() {
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm("确定要删除这个搜索引擎吗？")) return
+    setDeletingId(id)
+    setConfirmOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!deletingId) return
     try {
-      await searchEngineApi.delete(id)
+      await searchEngineApi.delete(deletingId)
       fetchEngines()
+      toast({
+        title: "删除成功",
+        description: "搜索引擎已成功删除",
+        variant: "success",
+      })
     } catch (error) {
       console.error("删除失败:", error)
+      toast({
+        title: "删除失败",
+        description: error instanceof Error ? error.message : "删除搜索引擎时发生错误",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -230,8 +252,18 @@ export default function SearchEnginesPage() {
       }
       setDialogOpen(false)
       fetchEngines()
+      toast({
+        title: "保存成功",
+        description: editingEngine ? "搜索引擎已更新" : "搜索引擎已创建",
+        variant: "success",
+      })
     } catch (error) {
       console.error("保存失败:", error)
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "保存搜索引擎时发生错误",
+        variant: "destructive",
+      })
     }
   }
 
@@ -385,6 +417,18 @@ export default function SearchEnginesPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* 删除确认对话框 */}
+      <ConfirmDialog
+        open={confirmOpen}
+        onOpenChange={setConfirmOpen}
+        title="删除搜索引擎"
+        description="确定要删除这个搜索引擎吗？此操作无法撤销。"
+        onConfirm={confirmDelete}
+        confirmText="删除"
+        cancelText="取消"
+        variant="destructive"
+      />
     </div>
   )
 }

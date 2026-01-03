@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { configApi, type SystemConfig } from "@/lib/api"
 import { Save, Cloud, Search, ImageIcon } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 // 配置项定义
 const CONFIG_ITEMS = [
@@ -50,6 +51,7 @@ const CONFIG_ITEMS = [
 ]
 
 export default function SettingsPage() {
+  const { toast } = useToast()
   const [configs, setConfigs] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -87,10 +89,18 @@ export default function SettingsPage() {
         value: configs[item.key] || "",
       }))
       await configApi.batchSet(configsToSave)
-      alert("保存成功")
+      toast({
+        title: "保存成功",
+        description: "系统配置已成功保存",
+        variant: "success",
+      })
     } catch (error) {
       console.error("保存失败:", error)
-      alert("保存失败")
+      toast({
+        title: "保存失败",
+        description: error instanceof Error ? error.message : "保存配置时发生错误",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }

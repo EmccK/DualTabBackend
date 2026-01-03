@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 
 const navItems = [
   { href: "/dashboard", label: "仪表盘", icon: LayoutGrid },
@@ -26,6 +27,7 @@ const navItems = [
 ]
 
 export function Sidebar() {
+  const { toast } = useToast()
   const pathname = usePathname()
   const router = useRouter()
   const [showPasswordDialog, setShowPasswordDialog] = useState(false)
@@ -63,7 +65,11 @@ export function Sidebar() {
       setOldPassword("")
       setNewPassword("")
       setConfirmPassword("")
-      alert("密码修改成功")
+      toast({
+        title: "修改成功",
+        description: "密码已成功修改",
+        variant: "success",
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : "修改失败")
     } finally {
