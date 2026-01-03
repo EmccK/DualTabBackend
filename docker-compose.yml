@@ -9,8 +9,10 @@ services:
       POSTGRES_DB: dualtab
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "${DB_PORT:-5432}:5432"
+    # 默认不映射数据库端口到宿主机，提高安全性
+    # 如需本地调试数据库，取消以下注释
+    # ports:
+    #   - "${DB_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dualtab"]
       interval: 5s
