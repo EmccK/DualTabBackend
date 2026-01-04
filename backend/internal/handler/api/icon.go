@@ -2,6 +2,7 @@ package api
 
 import (
 	"dualtab-backend/internal/repository"
+	"dualtab-backend/internal/service"
 	"dualtab-backend/pkg/response"
 	"strconv"
 
@@ -10,12 +11,16 @@ import (
 
 // IconHandler 对外图标 API 处理器
 type IconHandler struct {
-	repo *repository.IconRepo
+	repo           *repository.IconRepo
+	faviconService *service.FaviconService
 }
 
 // NewIconHandler 创建对外图标 API 处理器
-func NewIconHandler(repo *repository.IconRepo) *IconHandler {
-	return &IconHandler{repo: repo}
+func NewIconHandler(repo *repository.IconRepo, faviconService *service.FaviconService) *IconHandler {
+	return &IconHandler{
+		repo:           repo,
+		faviconService: faviconService,
+	}
 }
 
 // GetList 获取推荐书签列表（兼容 MonkNow 格式）
@@ -73,20 +78,40 @@ func (h *IconHandler) GetByURL(c *gin.Context) {
 		return
 	}
 
+	// 1. 先尝试从icons表查找（推荐图标）
 	icon, err := h.repo.FindByURL(url)
+	if err == nil {
+		// 找到推荐图标，直接返回
+		response.Success(c, gin.H{
+			"udId":        icon.ID,
+			"title":       icon.Title,
+			"description": icon.Description,
+			"url":         icon.URL,
+			"imgUrl":      icon.ImgURL,
+			"bgColor":     icon.BgColor,
+			"mimeType":    icon.MimeType,
+		})
+		return
+	}
+
+	// 2. 推荐图标未找到，使用FaviconService获取
+	// FaviconService会先从缓存查找，找不到再调用API
+	favicon, err := h.faviconService.GetFavicon(url)
 	if err != nil {
-		// 未找到时返回空数据
+		// 获取失败，返回空数据（保持与前端兼容）
 		response.Success(c, nil)
 		return
 	}
 
+	// 返回favicon信息
+	// 注意：缓存的图标 udId 为 -1，用于区分推荐图标
 	response.Success(c, gin.H{
-		"udId":        icon.ID,
-		"title":       icon.Title,
-		"description": icon.Description,
-		"url":         icon.URL,
-		"imgUrl":      icon.ImgURL,
-		"bgColor":     icon.BgColor,
-		"mimeType":    icon.MimeType,
+		"udId":        -1, // 缓存的图标使用 -1 表示，与推荐图标的正整数ID区分
+		"title":       favicon.Title,
+		"description": "",
+		"url":         url,
+		"imgUrl":      favicon.ImgURL,
+		"bgColor":     favicon.BgColor,
+		"mimeType":    favicon.MimeType,
 	})
 }

@@ -6,6 +6,7 @@ import (
 	apiHandler "dualtab-backend/internal/handler/api"
 	"dualtab-backend/internal/middleware"
 	"dualtab-backend/internal/repository"
+	"dualtab-backend/internal/service"
 	"dualtab-backend/pkg/upload"
 
 	"github.com/gin-gonic/gin"
@@ -26,6 +27,10 @@ func Setup(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	systemConfigRepo := repository.NewSystemConfigRepo(db)
 	userRepo := repository.NewUserRepo(db)
 	userDataRepo := repository.NewUserDataRepo(db)
+	faviconCacheRepo := repository.NewFaviconCacheRepo(db)
+
+	// 创建服务
+	faviconService := service.NewFaviconService(faviconCacheRepo)
 
 	// 创建管理后台处理器
 	authHandler := adminHandler.NewAuthHandler(adminUserRepo, cfg.JWTSecret)
@@ -36,7 +41,7 @@ func Setup(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	adminSystemConfigHandler := adminHandler.NewSystemConfigHandler(systemConfigRepo)
 
 	// 创建对外 API 处理器
-	apiIconHandler := apiHandler.NewIconHandler(iconRepo)
+	apiIconHandler := apiHandler.NewIconHandler(iconRepo, faviconService)
 	apiSearchEngineHandler := apiHandler.NewSearchEngineHandler(searchEngineRepo)
 	apiCategoryHandler := apiHandler.NewCategoryHandler(categoryRepo)
 	apiWallpaperHandler := apiHandler.NewWallpaperHandler(wallpaperRepo, systemConfigRepo)
