@@ -1,21 +1,52 @@
 package service
 
 import (
+	"dualtab-backend/internal/model"
 	"dualtab-backend/internal/repository"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
+	"time"
+
+	"github.com/rs/zerolog/log"
+	"golang.org/x/time/rate"
 )
 
 // FaviconService 网站图标服务
 type FaviconService struct {
-	cacheRepo *repository.FaviconCacheRepo
+	cacheRepo  *repository.FaviconCacheRepo
+	httpClient *http.Client
+	limiter    *rate.Limiter // API 限流器
+	apiURL     string        // Favicon API URL
 }
 
 // NewFaviconService 创建网站图标服务
-func NewFaviconService(cacheRepo *repository.FaviconCacheRepo) *FaviconService {
+func NewFaviconService(cacheRepo *repository.FaviconCacheRepo, apiURL string) *FaviconService {
 	return &FaviconService{
 		cacheRepo: cacheRepo,
+		httpClient: &http.Client{
+			Timeout: 10 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				IdleConnTimeout:     90 * time.Second,
+				DisableKeepAlives:   false,
+				DisableCompression:  false,
+				MaxIdleConnsPerHost: 10,
+			},
+			// 限制重定向次数
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				if len(via) >= 5 {
+					return fmt.Errorf("重定向次数过多")
+				}
+				return nil
+			},
+		},
+		// 限流器：每秒最多 10 个请求，突发最多 20 个
+		limiter: rate.NewLimiter(rate.Every(100*time.Millisecond), 20),
+		apiURL:  apiURL,
 	}
 }
 
@@ -25,6 +56,19 @@ type FaviconInfo struct {
 	ImgURL   string
 	BgColor  string
 	MimeType string
+}
+
+// MonkNowAPIResponse MonkNow API 响应结构（简化版）
+type MonkNowAPIResponse struct {
+	Data struct {
+		Icon struct {
+			Title    string `json:"title"`
+			ImgURL   string `json:"imgUrl"`
+			BgColor  string `json:"bgColor"`
+			MimeType string `json:"mimeType"`
+		} `json:"icon"`
+	} `json:"data"`
+	Msg string `json:"msg"`
 }
 
 // GetFavicon 获取网站图标
@@ -55,11 +99,22 @@ func (s *FaviconService) GetFavicon(inputURL string) (*FaviconInfo, error) {
 	// 尝试从缓存获取（支持域名降级）
 	favicon, err := s.getFaviconFromCache(host)
 	if err == nil && favicon != nil {
+		log.Debug().Str("host", host).Msg("从缓存获取图标成功")
 		return favicon, nil
 	}
 
-	// 缓存未命中，返回错误
-	return nil, fmt.Errorf("未找到图标缓存")
+	// 缓存未命中，从外部API获取
+	log.Info().Str("host", host).Msg("缓存未命中，尝试从外部API获取")
+	favicon, err = s.fetchFaviconFromAPI(host)
+	if err != nil {
+		log.Warn().Err(err).Str("host", host).Msg("从外部API获取图标失败")
+		return nil, fmt.Errorf("获取图标失败: %v", err)
+	}
+
+	// 保存到缓存
+	s.saveFaviconToCache(host, favicon)
+
+	return favicon, nil
 }
 
 // getFaviconFromCache 从缓存获取图标，支持域名降级
@@ -96,4 +151,106 @@ func (s *FaviconService) getFaviconFromCache(host string) (*FaviconInfo, error) 
 	}
 
 	return nil, fmt.Errorf("缓存未找到")
+}
+
+// fetchFaviconFromAPI 从外部API获取图标
+// 使用 MonkNow API
+func (s *FaviconService) fetchFaviconFromAPI(host string) (*FaviconInfo, error) {
+	// 限流检查
+	if !s.limiter.Allow() {
+		log.Warn().Str("host", host).Msg("API 请求被限流")
+		return nil, fmt.Errorf("请求过于频繁，请稍后重试")
+	}
+
+	// 移除端口号，只保留域名
+	hostWithoutPort := s.removePort(host)
+
+	// 构建 API URL
+	apiURL := fmt.Sprintf("%s?url=%s", s.apiURL, url.QueryEscape(hostWithoutPort))
+
+	// 创建请求
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("创建请求失败: %v", err)
+	}
+
+	// 设置 User-Agent
+	req.Header.Set("User-Agent", "DualTab/1.0 (https://github.com/yourusername/dualtab)")
+
+	// 发起请求
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		log.Warn().Err(err).Str("host", hostWithoutPort).Msg("请求API失败")
+		return nil, fmt.Errorf("请求API失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// 检查状态码
+	if resp.StatusCode != http.StatusOK {
+		log.Warn().Int("status", resp.StatusCode).Str("host", hostWithoutPort).Msg("API返回错误状态")
+		return nil, fmt.Errorf("API返回错误状态: %d", resp.StatusCode)
+	}
+
+	// 限制响应体大小（最大 1MB）
+	limitedBody := io.LimitReader(resp.Body, 1<<20)
+
+	// 读取响应体
+	body, err := io.ReadAll(limitedBody)
+	if err != nil {
+		log.Warn().Err(err).Str("host", hostWithoutPort).Msg("读取响应失败")
+		return nil, fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	// 解析 JSON 响应
+	var apiResp MonkNowAPIResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		log.Warn().Err(err).Str("host", hostWithoutPort).Msg("解析响应失败")
+		return nil, fmt.Errorf("解析响应失败: %v", err)
+	}
+
+	// 检查响应状态
+	if apiResp.Msg != "success" {
+		log.Warn().Str("msg", apiResp.Msg).Str("host", hostWithoutPort).Msg("API返回错误")
+		return nil, fmt.Errorf("API返回错误: %s", apiResp.Msg)
+	}
+
+	// 提取图标信息
+	icon := apiResp.Data.Icon
+	log.Info().Str("host", hostWithoutPort).Str("title", icon.Title).Msg("成功从API获取图标")
+
+	return &FaviconInfo{
+		Title:    icon.Title,
+		ImgURL:   icon.ImgURL,
+		BgColor:  icon.BgColor,
+		MimeType: icon.MimeType,
+	}, nil
+}
+
+// saveFaviconToCache 保存图标到缓存
+func (s *FaviconService) saveFaviconToCache(host string, favicon *FaviconInfo) {
+	// 移除端口号
+	hostWithoutPort := s.removePort(host)
+
+	cache := &model.FaviconCache{
+		Host:     hostWithoutPort,
+		Title:    favicon.Title,
+		ImgURL:   favicon.ImgURL,
+		BgColor:  favicon.BgColor,
+		MimeType: favicon.MimeType,
+	}
+
+	// 尝试保存，如果失败记录警告
+	if err := s.cacheRepo.Create(cache); err != nil {
+		log.Warn().Err(err).Str("host", hostWithoutPort).Msg("保存图标缓存失败")
+	} else {
+		log.Info().Str("host", hostWithoutPort).Msg("图标已保存到缓存")
+	}
+}
+
+// removePort 移除域名中的端口号
+func (s *FaviconService) removePort(host string) string {
+	if idx := strings.Index(host, ":"); idx != -1 {
+		return host[:idx]
+	}
+	return host
 }

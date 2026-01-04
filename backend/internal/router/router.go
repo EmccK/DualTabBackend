@@ -30,7 +30,7 @@ func Setup(r *gin.Engine, db *gorm.DB, cfg *config.Config) {
 	faviconCacheRepo := repository.NewFaviconCacheRepo(db)
 
 	// 创建服务
-	faviconService := service.NewFaviconService(faviconCacheRepo)
+	faviconService := service.NewFaviconService(faviconCacheRepo, cfg.FaviconAPIURL)
 
 	// 创建管理后台处理器
 	authHandler := adminHandler.NewAuthHandler(adminUserRepo, cfg.JWTSecret)

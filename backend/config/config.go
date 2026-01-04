@@ -28,6 +28,9 @@ type Config struct {
 	// 管理员配置
 	AdminUsername string
 	AdminPassword string
+
+	// Favicon API 配置
+	FaviconAPIURL string
 }
 
 // Load 加载配置
@@ -47,6 +50,7 @@ func Load() *Config {
 		UploadURL:     getEnv("UPLOAD_URL", "http://localhost:8080/uploads"),
 		AdminUsername: getEnv("ADMIN_USERNAME", "admin"),
 		AdminPassword: getEnv("ADMIN_PASSWORD", "admin123"),
+		FaviconAPIURL: getEnv("FAVICON_API_URL", "https://dynamic-api.monknow.com/icon/byurl"),
 	}
 }
 
