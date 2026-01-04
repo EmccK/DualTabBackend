@@ -52,20 +52,22 @@ func NewFaviconService(cacheRepo *repository.FaviconCacheRepo, apiURL string) *F
 
 // FaviconInfo 图标信息
 type FaviconInfo struct {
-	Title    string
-	ImgURL   string
-	BgColor  string
-	MimeType string
+	Title       string
+	Description string
+	ImgURL      string
+	BgColor     string
+	MimeType    string
 }
 
 // MonkNowAPIResponse MonkNow API 响应结构（简化版）
 type MonkNowAPIResponse struct {
 	Data struct {
 		Icon struct {
-			Title    string `json:"title"`
-			ImgURL   string `json:"imgUrl"`
-			BgColor  string `json:"bgColor"`
-			MimeType string `json:"mimeType"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+			ImgURL      string `json:"imgUrl"`
+			BgColor     string `json:"bgColor"`
+			MimeType    string `json:"mimeType"`
 		} `json:"icon"`
 	} `json:"data"`
 	Msg string `json:"msg"`
@@ -126,10 +128,11 @@ func (s *FaviconService) getFaviconFromCache(host string) (*FaviconInfo, error) 
 	cache, err := s.cacheRepo.FindByHost(host)
 	if err == nil {
 		return &FaviconInfo{
-			Title:    cache.Title,
-			ImgURL:   cache.ImgURL,
-			BgColor:  cache.BgColor,
-			MimeType: cache.MimeType,
+			Title:       cache.Title,
+			Description: cache.Description,
+			ImgURL:      cache.ImgURL,
+			BgColor:     cache.BgColor,
+			MimeType:    cache.MimeType,
 		}, nil
 	}
 
@@ -142,10 +145,11 @@ func (s *FaviconService) getFaviconFromCache(host string) (*FaviconInfo, error) 
 		cache, err = s.cacheRepo.FindByHost(parentHost)
 		if err == nil {
 			return &FaviconInfo{
-				Title:    cache.Title,
-				ImgURL:   cache.ImgURL,
-				BgColor:  cache.BgColor,
-				MimeType: cache.MimeType,
+				Title:       cache.Title,
+				Description: cache.Description,
+				ImgURL:      cache.ImgURL,
+				BgColor:     cache.BgColor,
+				MimeType:    cache.MimeType,
 			}, nil
 		}
 	}
@@ -219,10 +223,11 @@ func (s *FaviconService) fetchFaviconFromAPI(host string) (*FaviconInfo, error) 
 	log.Info().Str("host", hostWithoutPort).Str("title", icon.Title).Msg("成功从API获取图标")
 
 	return &FaviconInfo{
-		Title:    icon.Title,
-		ImgURL:   icon.ImgURL,
-		BgColor:  icon.BgColor,
-		MimeType: icon.MimeType,
+		Title:       icon.Title,
+		Description: icon.Description,
+		ImgURL:      icon.ImgURL,
+		BgColor:     icon.BgColor,
+		MimeType:    icon.MimeType,
 	}, nil
 }
 
@@ -232,11 +237,12 @@ func (s *FaviconService) saveFaviconToCache(host string, favicon *FaviconInfo) {
 	hostWithoutPort := s.removePort(host)
 
 	cache := &model.FaviconCache{
-		Host:     hostWithoutPort,
-		Title:    favicon.Title,
-		ImgURL:   favicon.ImgURL,
-		BgColor:  favicon.BgColor,
-		MimeType: favicon.MimeType,
+		Host:        hostWithoutPort,
+		Title:       favicon.Title,
+		Description: favicon.Description,
+		ImgURL:      favicon.ImgURL,
+		BgColor:     favicon.BgColor,
+		MimeType:    favicon.MimeType,
 	}
 
 	// 尝试保存，如果失败记录警告

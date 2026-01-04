@@ -108,7 +108,7 @@ func (h *IconHandler) GetByURL(c *gin.Context) {
 	response.Success(c, gin.H{
 		"udId":        -1, // 缓存的图标使用 -1 表示，与推荐图标的正整数ID区分
 		"title":       favicon.Title,
-		"description": "",
+		"description": favicon.Description,
 		"url":         url,
 		"imgUrl":      favicon.ImgURL,
 		"bgColor":     favicon.BgColor,
