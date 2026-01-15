@@ -74,8 +74,8 @@ type MonkNowAPIResponse struct {
 }
 
 // GetFavicon 获取网站图标
-// 优先从数据库缓存获取
-// 支持域名降级：例如 wiki.example.com -> example.com
+// 优先从数据库缓存精确匹配获取
+// 缓存未命中时从API获取，API失败时才降级到父域名缓存
 func (s *FaviconService) GetFavicon(inputURL string) (*FaviconInfo, error) {
 	// 解析URL获取host
 	parsedURL, err := url.Parse(inputURL)
@@ -98,63 +98,72 @@ func (s *FaviconService) GetFavicon(inputURL string) (*FaviconInfo, error) {
 		return nil, fmt.Errorf("域名长度超过限制")
 	}
 
-	// 尝试从缓存获取（支持域名降级）
-	favicon, err := s.getFaviconFromCache(host)
+	// 移除端口号用于缓存查询
+	hostWithoutPort := s.removePort(host)
+
+	// 1. 尝试从缓存精确匹配获取
+	favicon, err := s.getFaviconFromCacheExact(hostWithoutPort)
 	if err == nil && favicon != nil {
-		log.Debug().Str("host", host).Msg("从缓存获取图标成功")
+		log.Debug().Str("host", hostWithoutPort).Msg("从缓存精确匹配获取图标成功")
 		return favicon, nil
 	}
 
-	// 缓存未命中，从外部API获取
-	log.Info().Str("host", host).Msg("缓存未命中，尝试从外部API获取")
-	favicon, err = s.fetchFaviconFromAPI(host)
-	if err != nil {
-		log.Warn().Err(err).Str("host", host).Msg("从外部API获取图标失败")
-		return nil, fmt.Errorf("获取图标失败: %v", err)
+	// 2. 缓存未命中，从外部API获取
+	log.Info().Str("host", hostWithoutPort).Msg("缓存未命中，尝试从外部API获取")
+	favicon, err = s.fetchFaviconFromAPI(hostWithoutPort)
+	if err == nil {
+		// API获取成功，保存到缓存
+		s.saveFaviconToCache(hostWithoutPort, favicon)
+		return favicon, nil
 	}
 
-	// 保存到缓存
-	s.saveFaviconToCache(host, favicon)
+	log.Warn().Err(err).Str("host", hostWithoutPort).Msg("从外部API获取图标失败")
 
-	return favicon, nil
+	// 3. API获取失败，尝试降级到父域名缓存作为fallback
+	favicon, err = s.getFaviconFromParentCache(hostWithoutPort)
+	if err == nil && favicon != nil {
+		log.Debug().Str("host", hostWithoutPort).Msg("从父域名缓存获取图标成功(fallback)")
+		return favicon, nil
+	}
+
+	return nil, fmt.Errorf("获取图标失败")
 }
 
-// getFaviconFromCache 从缓存获取图标，支持域名降级
-// 降级策略：只降级一次，从子域名降到父域名
-// 例如: wiki.example.com -> example.com
-// 不会继续降级到顶级域名(如 com)，因为顶级域名缓存没有实际意义
-func (s *FaviconService) getFaviconFromCache(host string) (*FaviconInfo, error) {
-	// 尝试当前域名
+// getFaviconFromCacheExact 从缓存精确匹配获取图标（不降级）
+func (s *FaviconService) getFaviconFromCacheExact(host string) (*FaviconInfo, error) {
 	cache, err := s.cacheRepo.FindByHost(host)
-	if err == nil {
-		return &FaviconInfo{
-			Title:       cache.Title,
-			Description: cache.Description,
-			ImgURL:      cache.ImgURL,
-			BgColor:     cache.BgColor,
-			MimeType:    cache.MimeType,
-		}, nil
+	if err != nil {
+		return nil, err
 	}
+	return &FaviconInfo{
+		Title:       cache.Title,
+		Description: cache.Description,
+		ImgURL:      cache.ImgURL,
+		BgColor:     cache.BgColor,
+		MimeType:    cache.MimeType,
+	}, nil
+}
 
-	// 尝试父域名（仅降级一次）
+// getFaviconFromParentCache 从父域名缓存获取图标（仅作为fallback）
+// 例如: photos.google.com -> google.com
+func (s *FaviconService) getFaviconFromParentCache(host string) (*FaviconInfo, error) {
 	parts := strings.Split(host, ".")
-	if len(parts) > 2 {
-		// 去掉子域名，尝试父域名
-		// wiki.example.com -> example.com
-		parentHost := strings.Join(parts[1:], ".")
-		cache, err = s.cacheRepo.FindByHost(parentHost)
-		if err == nil {
-			return &FaviconInfo{
-				Title:       cache.Title,
-				Description: cache.Description,
-				ImgURL:      cache.ImgURL,
-				BgColor:     cache.BgColor,
-				MimeType:    cache.MimeType,
-			}, nil
-		}
+	if len(parts) <= 2 {
+		return nil, fmt.Errorf("无父域名可降级")
 	}
-
-	return nil, fmt.Errorf("缓存未找到")
+	// 去掉子域名，尝试父域名
+	parentHost := strings.Join(parts[1:], ".")
+	cache, err := s.cacheRepo.FindByHost(parentHost)
+	if err != nil {
+		return nil, err
+	}
+	return &FaviconInfo{
+		Title:       cache.Title,
+		Description: cache.Description,
+		ImgURL:      cache.ImgURL,
+		BgColor:     cache.BgColor,
+		MimeType:    cache.MimeType,
+	}, nil
 }
 
 // fetchFaviconFromAPI 从外部API获取图标
