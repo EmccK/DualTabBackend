@@ -42,7 +42,7 @@ export default function IconsPage() {
     url: "",
     img_url: "",
     bg_color: "#ffffff",
-    category_id: 0,
+    category_ids: [],
     sort_order: 0,
     is_active: true,
   })
@@ -82,7 +82,7 @@ export default function IconsPage() {
       url: "",
       img_url: "",
       bg_color: "#ffffff",
-      category_id: categories[0]?.id || 0,
+      category_ids: categories[0] ? [categories[0].id] : [],
       sort_order: 0,
       is_active: true,
     })
@@ -97,7 +97,7 @@ export default function IconsPage() {
       url: icon.url,
       img_url: icon.img_url,
       bg_color: icon.bg_color,
-      category_id: icon.category_id,
+      category_ids: icon.categories?.map(c => c.id) || [],
       sort_order: icon.sort_order,
       is_active: icon.is_active,
     })
@@ -229,7 +229,9 @@ export default function IconsPage() {
                   <TableCell className="text-gray-500 max-w-xs truncate">
                     {icon.url}
                   </TableCell>
-                  <TableCell className="text-gray-700">{icon.category?.name || "-"}</TableCell>
+                  <TableCell className="text-gray-700">
+                    {icon.categories?.map(c => c.name).join(", ") || "-"}
+                  </TableCell>
                   <TableCell>
                     <span
                       className={`px-2 py-1 rounded-full text-xs ${
@@ -359,46 +361,54 @@ export default function IconsPage() {
                 </Button>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-gray-700">背景色</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="color"
-                    value={formData.bg_color}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bg_color: e.target.value })
-                    }
-                    className="w-12 h-9 p-1 border-gray-200"
-                  />
-                  <Input
-                    value={formData.bg_color}
-                    onChange={(e) =>
-                      setFormData({ ...formData, bg_color: e.target.value })
-                    }
-                    className="flex-1 bg-white text-gray-900 border-gray-200"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-gray-700">分类</Label>
-                <select
-                  value={formData.category_id}
+            <div className="space-y-2">
+              <Label className="text-gray-700">背景色</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="color"
+                  value={formData.bg_color}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      category_id: Number(e.target.value),
-                    })
+                    setFormData({ ...formData, bg_color: e.target.value })
                   }
-                  className="w-full h-9 rounded-md border border-gray-200 px-3 bg-white text-gray-900"
-                >
-                  <option value={0}>请选择分类</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                  className="w-12 h-9 p-1 border-gray-200"
+                />
+                <Input
+                  value={formData.bg_color}
+                  onChange={(e) =>
+                    setFormData({ ...formData, bg_color: e.target.value })
+                  }
+                  className="flex-1 bg-white text-gray-900 border-gray-200"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-700">分类</Label>
+              <div className="flex flex-wrap gap-2 p-2 border border-gray-200 rounded-md bg-white min-h-[38px]">
+                {categories.map((cat) => (
+                  <label
+                    key={cat.id}
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm cursor-pointer transition-colors ${
+                      formData.category_ids?.includes(cat.id)
+                        ? "bg-orange-100 text-orange-700 border border-orange-300"
+                        : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={formData.category_ids?.includes(cat.id) || false}
+                      onChange={(e) => {
+                        const ids = formData.category_ids || []
+                        if (e.target.checked) {
+                          setFormData({ ...formData, category_ids: [...ids, cat.id] })
+                        } else {
+                          setFormData({ ...formData, category_ids: ids.filter(id => id !== cat.id) })
+                        }
+                      }}
+                    />
+                    {cat.name}
+                  </label>
+                ))}
               </div>
             </div>
             <div className="flex items-center gap-2">

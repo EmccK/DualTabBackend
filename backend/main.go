@@ -37,6 +37,7 @@ func main() {
 		&model.AdminUser{},
 		&model.Category{},
 		&model.Icon{},
+		&model.IconCategory{},
 		&model.SearchEngine{},
 		&model.Wallpaper{},
 		&model.SystemConfig{},

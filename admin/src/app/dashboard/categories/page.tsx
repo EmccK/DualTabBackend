@@ -273,7 +273,7 @@ export default function CategoriesPage() {
     url: "",
     img_url: "",
     bg_color: "#ffffff",
-    category_id: 0,
+    category_ids: [],
     sort_order: 0,
     is_active: true,
   })
@@ -445,7 +445,7 @@ export default function CategoriesPage() {
       url: "",
       img_url: "",
       bg_color: "#ffffff",
-      category_id: categoryId,
+      category_ids: [categoryId],
       sort_order: 0,
       is_active: true,
     })
@@ -460,7 +460,7 @@ export default function CategoriesPage() {
       url: icon.url,
       img_url: icon.img_url,
       bg_color: icon.bg_color,
-      category_id: icon.category_id,
+      category_ids: icon.categories?.map(c => c.id) || [],
       sort_order: icon.sort_order,
       is_active: icon.is_active,
     })
@@ -504,8 +504,12 @@ export default function CategoriesPage() {
         await iconApi.create(iconFormData)
       }
       setIconDialogOpen(false)
-      if (iconFormData.category_id) {
-        await fetchCategoryIcons(iconFormData.category_id)
+      // 刷新所有已选分类的图标列表
+      const categoryIds = iconFormData.category_ids || []
+      for (const catId of categoryIds) {
+        if (expandedIds.has(catId)) {
+          await fetchCategoryIcons(catId)
+        }
       }
       toast({
         title: "保存成功",
@@ -703,46 +707,54 @@ export default function CategoriesPage() {
               </div>
               {uploading && <p className="text-sm text-gray-500">上传中...</p>}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-gray-700">背景色</Label>
-                <div className="flex gap-2">
-                  <Input
-                    type="color"
-                    value={iconFormData.bg_color}
-                    onChange={(e) =>
-                      setIconFormData({ ...iconFormData, bg_color: e.target.value })
-                    }
-                    className="w-12 h-9 p-1 border-gray-200"
-                  />
-                  <Input
-                    value={iconFormData.bg_color}
-                    onChange={(e) =>
-                      setIconFormData({ ...iconFormData, bg_color: e.target.value })
-                    }
-                    className="flex-1 bg-white text-gray-900 border-gray-200"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="text-gray-700">分类</Label>
-                <select
-                  value={iconFormData.category_id}
+            <div className="space-y-2">
+              <Label className="text-gray-700">背景色</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="color"
+                  value={iconFormData.bg_color}
                   onChange={(e) =>
-                    setIconFormData({
-                      ...iconFormData,
-                      category_id: Number(e.target.value),
-                    })
+                    setIconFormData({ ...iconFormData, bg_color: e.target.value })
                   }
-                  className="w-full h-9 rounded-md border border-gray-200 px-3 bg-white text-gray-900"
-                >
-                  <option value={0}>请选择分类</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
+                  className="w-12 h-9 p-1 border-gray-200"
+                />
+                <Input
+                  value={iconFormData.bg_color}
+                  onChange={(e) =>
+                    setIconFormData({ ...iconFormData, bg_color: e.target.value })
+                  }
+                  className="flex-1 bg-white text-gray-900 border-gray-200"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-gray-700">分类</Label>
+              <div className="flex flex-wrap gap-2 p-2 border border-gray-200 rounded-md bg-white min-h-[38px]">
+                {categories.map((cat) => (
+                  <label
+                    key={cat.id}
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm cursor-pointer transition-colors ${
+                      iconFormData.category_ids?.includes(cat.id)
+                        ? "bg-orange-100 text-orange-700 border border-orange-300"
+                        : "bg-gray-100 text-gray-600 border border-gray-200 hover:bg-gray-200"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      className="hidden"
+                      checked={iconFormData.category_ids?.includes(cat.id) || false}
+                      onChange={(e) => {
+                        const ids = iconFormData.category_ids || []
+                        if (e.target.checked) {
+                          setIconFormData({ ...iconFormData, category_ids: [...ids, cat.id] })
+                        } else {
+                          setIconFormData({ ...iconFormData, category_ids: ids.filter(id => id !== cat.id) })
+                        }
+                      }}
+                    />
+                    {cat.name}
+                  </label>
+                ))}
               </div>
             </div>
             <div className="flex items-center gap-2">

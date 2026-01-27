@@ -208,12 +208,11 @@ export interface Icon {
   img_url: string
   bg_color: string
   mime_type: string
-  category_id: number
   sort_order: number
   is_active: boolean
   created_at: string
   updated_at: string
-  category?: Category
+  categories?: Category[] // 多分类
 }
 
 export interface IconListParams {
@@ -231,7 +230,7 @@ export interface CreateIconRequest {
   img_url?: string
   bg_color?: string
   mime_type?: string
-  category_id?: number
+  category_ids?: number[] // 多分类
   sort_order?: number
   is_active?: boolean
 }
@@ -243,7 +242,7 @@ export interface UpdateIconRequest {
   img_url?: string
   bg_color?: string
   mime_type?: string
-  category_id?: number
+  category_ids?: number[] // 多分类
   sort_order?: number
   is_active?: boolean
 }

@@ -32,19 +32,20 @@ func (r *IconRepo) FindAll(query IconQuery) ([]model.Icon, int64, error) {
 
 	db := r.db.Model(&model.Icon{})
 
-	// 分类筛选
+	// 分类筛选：通过中间表 JOIN 查询
 	if query.CategoryID > 0 {
-		db = db.Where("category_id = ?", query.CategoryID)
+		db = db.Joins("JOIN icon_categories ON icon_categories.icon_id = icons.id").
+			Where("icon_categories.category_id = ?", query.CategoryID)
 	}
 
 	// 关键词搜索
 	if query.Keyword != "" {
-		db = db.Where("title ILIKE ? OR description ILIKE ?", "%"+query.Keyword+"%", "%"+query.Keyword+"%")
+		db = db.Where("icons.title ILIKE ? OR icons.description ILIKE ?", "%"+query.Keyword+"%", "%"+query.Keyword+"%")
 	}
 
 	// 状态筛选
 	if query.IsActive != nil {
-		db = db.Where("is_active = ?", *query.IsActive)
+		db = db.Where("icons.is_active = ?", *query.IsActive)
 	}
 
 	// 统计总数
@@ -60,15 +61,15 @@ func (r *IconRepo) FindAll(query IconQuery) ([]model.Icon, int64, error) {
 		db = db.Limit(query.Size)
 	}
 
-	// 排序并查询
-	err := db.Order("sort_order ASC, id DESC").Preload("Category").Find(&icons).Error
+	// 排序并查询，Preload Categories
+	err := db.Order("icons.sort_order ASC, icons.id DESC").Preload("Categories").Find(&icons).Error
 	return icons, total, err
 }
 
 // FindByID 根据 ID 查找
 func (r *IconRepo) FindByID(id uint) (*model.Icon, error) {
 	var icon model.Icon
-	err := r.db.Preload("Category").First(&icon, id).Error
+	err := r.db.Preload("Categories").First(&icon, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -108,4 +109,17 @@ func (r *IconRepo) Update(icon *model.Icon) error {
 // Delete 删除图标
 func (r *IconRepo) Delete(id uint) error {
 	return r.db.Delete(&model.Icon{}, id).Error
+}
+
+// UpdateCategories 更新图标的分类关联
+func (r *IconRepo) UpdateCategories(icon *model.Icon, categoryIDs []uint) error {
+	// 构建分类列表
+	var categories []model.Category
+	if len(categoryIDs) > 0 {
+		if err := r.db.Where("id IN ?", categoryIDs).Find(&categories).Error; err != nil {
+			return err
+		}
+	}
+	// 替换关联
+	return r.db.Model(icon).Association("Categories").Replace(categories)
 }

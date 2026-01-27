@@ -73,7 +73,7 @@ type CreateIconRequest struct {
 	ImgURL      string `json:"img_url"`
 	BgColor     string `json:"bg_color"`
 	MimeType    string `json:"mime_type"`
-	CategoryID  uint   `json:"category_id"`
+	CategoryIDs []uint `json:"category_ids"` // 多分类
 	SortOrder   int    `json:"sort_order"`
 	IsActive    *bool  `json:"is_active"`
 }
@@ -109,7 +109,6 @@ func (h *IconHandler) Create(c *gin.Context) {
 		ImgURL:      req.ImgURL,
 		BgColor:     bgColor,
 		MimeType:    mimeType,
-		CategoryID:  req.CategoryID,
 		SortOrder:   req.SortOrder,
 		IsActive:    isActive,
 	}
@@ -119,20 +118,30 @@ func (h *IconHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// 设置分类关联
+	if len(req.CategoryIDs) > 0 {
+		if err := h.repo.UpdateCategories(icon, req.CategoryIDs); err != nil {
+			response.InternalError(c, "设置分类失败")
+			return
+		}
+	}
+
+	// 重新加载以获取完整的分类信息
+	icon, _ = h.repo.FindByID(icon.ID)
 	response.Success(c, icon)
 }
 
 // UpdateIconRequest 更新图标请求
 type UpdateIconRequest struct {
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	URL         string `json:"url"`
-	ImgURL      string `json:"img_url"`
-	BgColor     string `json:"bg_color"`
-	MimeType    string `json:"mime_type"`
-	CategoryID  *uint  `json:"category_id"`
-	SortOrder   *int   `json:"sort_order"`
-	IsActive    *bool  `json:"is_active"`
+	Title       string  `json:"title"`
+	Description string  `json:"description"`
+	URL         string  `json:"url"`
+	ImgURL      string  `json:"img_url"`
+	BgColor     string  `json:"bg_color"`
+	MimeType    string  `json:"mime_type"`
+	CategoryIDs *[]uint `json:"category_ids"` // 多分类
+	SortOrder   *int    `json:"sort_order"`
+	IsActive    *bool   `json:"is_active"`
 }
 
 // Update 更新图标
@@ -173,9 +182,6 @@ func (h *IconHandler) Update(c *gin.Context) {
 	if req.MimeType != "" {
 		icon.MimeType = req.MimeType
 	}
-	if req.CategoryID != nil {
-		icon.CategoryID = *req.CategoryID
-	}
 	if req.SortOrder != nil {
 		icon.SortOrder = *req.SortOrder
 	}
@@ -188,6 +194,16 @@ func (h *IconHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// 更新分类关联
+	if req.CategoryIDs != nil {
+		if err := h.repo.UpdateCategories(icon, *req.CategoryIDs); err != nil {
+			response.InternalError(c, "更新分类失败")
+			return
+		}
+	}
+
+	// 重新加载以获取完整的分类信息
+	icon, _ = h.repo.FindByID(icon.ID)
 	response.Success(c, icon)
 }
 

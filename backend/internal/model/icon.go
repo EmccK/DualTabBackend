@@ -14,14 +14,13 @@ type Icon struct {
 	ImgURL      string    `json:"img_url" gorm:"column:img_url;size:500"`
 	BgColor     string    `json:"bg_color" gorm:"column:bg_color;size:20;default:'#ffffff'"`
 	MimeType    string    `json:"mime_type" gorm:"column:mime_type;size:50;default:'image/png'"`
-	CategoryID  uint      `json:"category_id" gorm:"column:category_id;index"`
 	SortOrder   int       `json:"sort_order" gorm:"column:sort_order;default:0"`
 	IsActive    bool      `json:"is_active" gorm:"column:is_active;default:true;index"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 
-	// 关联
-	Category *Category `json:"category,omitempty" gorm:"foreignKey:CategoryID"`
+	// 多对多关联
+	Categories []Category `json:"categories,omitempty" gorm:"many2many:icon_categories;"`
 }
 
 func (Icon) TableName() string {

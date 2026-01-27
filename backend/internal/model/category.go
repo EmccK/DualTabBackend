@@ -14,8 +14,8 @@ type Category struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 
-	// 关联
-	Icons []Icon `json:"icons,omitempty" gorm:"foreignKey:CategoryID"`
+	// 多对多关联
+	Icons []Icon `json:"icons,omitempty" gorm:"many2many:icon_categories;"`
 }
 
 func (Category) TableName() string {
