@@ -11,7 +11,10 @@
       "Bash(curl:*)",
       "Bash(docker logs:*)",
       "Bash(docker-compose down:*)",
-      "Bash(TOKEN=\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJ1c2VybmFtZSI6ImFkbWluIiwiZXhwIjoxNzY3NTIyMzE5LCJpYXQiOjE3Njc0MzU5MTl9.0Bo63djOA-kdF-_Ncho7tDedyWcSusLTxRYFcwv1Zrs\")"
+      "Bash(go build:*)",
+      "Bash(go test:*)",
+      "Bash(npx tsc --noEmit)",
+      "Bash(gh auth:*)"
     ]
   }
 }

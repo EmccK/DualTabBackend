@@ -59,7 +59,7 @@ type FaviconInfo struct {
 	MimeType    string
 }
 
-// MonkNowAPIResponse MonkNow API 响应结构（简化版）
+// MonkNowAPIResponse MonkNow API 响应结构
 type MonkNowAPIResponse struct {
 	Data struct {
 		Icon struct {
@@ -229,6 +229,13 @@ func (s *FaviconService) fetchFaviconFromAPI(host string) (*FaviconInfo, error) 
 
 	// 提取图标信息
 	icon := apiResp.Data.Icon
+
+	// 检查返回数据是否有效（imgUrl 不能为空）
+	if icon.ImgURL == "" {
+		log.Warn().Str("host", hostWithoutPort).Msg("API返回数据无效: imgUrl为空")
+		return nil, fmt.Errorf("API返回数据无效")
+	}
+
 	log.Info().Str("host", hostWithoutPort).Str("title", icon.Title).Msg("成功从API获取图标")
 
 	return &FaviconInfo{
